@@ -131,6 +131,12 @@ try:
     aid = aid.split()
     for _id in aid:
         SUDO_USERS.add(int(_id.strip()))
+try:
+    IMAGE_URL = getConfig('IMAGE_URL')
+    if len(IMAGE_URL) == 0:
+        IMAGE_URL = 'https://telegra.ph/file/79733a2b8d4e437df928a.jpg'
+except KeyError:
+    IMAGE_URL = 'https://telegra.ph/file/79733a2b8d4e437df928a.jpg'  
 except:
     pass
 try:
