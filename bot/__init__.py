@@ -56,14 +56,13 @@ except:
     SERVER_PORT = 80
 
 Popen([f"gunicorn web.wserver:app --bind 0.0.0.0:{SERVER_PORT}"], shell=True)
-#srun(["qbittorrent-nox", "-d", "--profile=."])
+srun(["qbittorrent-nox", "-d", "--profile=."])
 if not ospath.exists('.netrc'):
     srun(["touch", ".netrc"])
 srun(["cp", ".netrc", "/root/.netrc"])
 srun(["chmod", "600", ".netrc"])
 srun(["chmod", "+x", "aria.sh"])
 srun(["./aria.sh"], shell=True)
-alive = Popen(["python3", "alive.py"])
 sleep(0.5)
 
 Interval = []
@@ -181,6 +180,12 @@ try:
 except:
     log_warning('MEGA API KEY not provided!')
     MEGA_API_KEY = None
+try:
+    IMAGE_URL = getConfig('IMAGE_URL')
+    if len(IMAGE_URL) == 0:
+        IMAGE_URL = 'https://telegra.ph/file/79733a2b8d4e437df928a.jpg'
+except KeyError:
+    IMAGE_URL = 'https://telegra.ph/file/79733a2b8d4e437df928a.jpg'     
 try:
     MEGA_EMAIL_ID = getConfig('MEGA_EMAIL_ID')
     MEGA_PASSWORD = getConfig('MEGA_PASSWORD')
@@ -388,12 +393,6 @@ try:
         log_error(f"MULTI_SEARCH_URL: {e}")
 except:
     pass
-try:
-    IMAGE_URL = getConfig('IMAGE_URL')
-    if len(IMAGE_URL) == 0:
-        IMAGE_URL = 'https://telegra.ph/file/79733a2b8d4e437df928a.jpg'
-except KeyError:
-    IMAGE_URL = 'https://telegra.ph/file/79733a2b8d4e437df928a.jpg'    
 try:
     YT_COOKIES_URL = getConfig('YT_COOKIES_URL')
     if len(YT_COOKIES_URL) == 0:
