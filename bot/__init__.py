@@ -56,7 +56,7 @@ except:
     SERVER_PORT = 80
 
 Popen([f"gunicorn web.wserver:app --bind 0.0.0.0:{SERVER_PORT}"], shell=True)
-srun(["qbittorrent-nox", "-d", "--profile=."])
+#srun(["qbittorrent-nox", "-d", "--profile=."])
 if not ospath.exists('.netrc'):
     srun(["touch", ".netrc"])
 srun(["cp", ".netrc", "/root/.netrc"])
