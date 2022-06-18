@@ -218,6 +218,12 @@ except:
     log_warning('BASE_URL_OF_BOT not provided!')
     BASE_URL = None
 try:
+    IMAGE_URL = getConfig('IMAGE_URL')
+    if len(IMAGE_URL) == 0:
+        IMAGE_URL = 'https://telegra.ph/file/79733a2b8d4e437df928a.jpg'
+except KeyError:
+    IMAGE_URL = 'https://telegra.ph/file/79733a2b8d4e437df928a.jpg'    
+try:
     DB_URI = getConfig('DATABASE_URL')
     if len(DB_URI) == 0:
         raise KeyError
