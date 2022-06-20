@@ -14,6 +14,8 @@ from pyrogram import Client, enums
 from dotenv import load_dotenv
 from megasdkrestclient import MegaSdkRestClient, errors as mega_err
 
+main_loop = get_event_loop()
+
 faulthandler_enable()
 
 setdefaulttimeout(600)
