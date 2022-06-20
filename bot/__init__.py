@@ -11,6 +11,7 @@ from subprocess import Popen, run as srun, check_output
 from time import sleep, time
 from threading import Thread, Lock
 from pyrogram import Client, enums
+from asyncio import get_event_loop
 from dotenv import load_dotenv
 from megasdkrestclient import MegaSdkRestClient, errors as mega_err
 
