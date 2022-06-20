@@ -529,16 +529,6 @@ try:
 except KeyError:
     IMAGE_URL = 'https://telegra.ph/file/b6e277bd5f9003fcc55f8.jpg'        
 
-try:
-    HEROKU_API_KEY = getConfig('HEROKU_API_KEY')
-except KeyError:
-    logging.warning('HEROKU API KEY not provided!')
-    HEROKU_API_KEY = None
-try:
-    HEROKU_APP_NAME = getConfig('HEROKU_APP_NAME')
-except KeyError:
-    logging.warning('HEROKU APP NAME not provided!')
-    HEROKU_APP_NAME = None             
 
 updater = tgUpdater(token=BOT_TOKEN, request_kwargs={'read_timeout': 20, 'connect_timeout': 15})
 bot = updater.bot
