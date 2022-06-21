@@ -56,23 +56,16 @@ try:
 except:
     SERVER_PORT = 80
 
-try:
-    TORRENT_TIMEOUT = getConfig('TORRENT_TIMEOUT')
-    if len(TORRENT_TIMEOUT) == 0:
-        raise KeyError
-    TORRENT_TIMEOUT = int(TORRENT_TIMEOUT)
-except:
-    TORRENT_TIMEOUT = None    
-
 PORT = environ.get('PORT', SERVER_PORT)
 alive = Popen(["python3", "alive.py"])
+Popen([f"gunicorn web.wserver:app --bind 0.0.0.0:{PORT}"], shell=True)
 srun(["qbittorrent-nox", "-d", "--profile=."])
 if not ospath.exists('.netrc'):
     srun(["touch", ".netrc"])
 srun(["cp", ".netrc", "/root/.netrc"])
 srun(["chmod", "600", ".netrc"])
-srun(["chmod", "+x", "aria.sh"])
-srun(["./aria.sh"], shell=True)
+srun(["chmod", "+x", "a2c.sh"])
+srun(["./a2c.sh"], shell=True)
 
 Interval = []
 DRIVES_NAMES = []
@@ -175,13 +168,13 @@ except:
 
 def aria2c_init():
     try:
-        log_info("Initializing Aria2c")
+        log_info("Initializing Bot")
         link = "https://linuxmint.com/torrents/lmde-5-cinnamon-64bit.iso.torrent"
         dire = DOWNLOAD_DIR.rstrip("/")
         aria2.add_uris([link], {'dir': dire})
         sleep(3)
         downloads = aria2.get_downloads()
-        sleep(20)
+        sleep(30)
         for download in downloads:
             aria2.remove([download], force=True, files=True)
     except Exception as e:
