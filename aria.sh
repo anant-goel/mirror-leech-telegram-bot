@@ -1,4 +1,4 @@
---enable-rpc=true \
+aria2c --enable-rpc=true \
 --check-certificate=false \
 --daemon=true \
 --max-connection-per-server=10 \
