@@ -78,6 +78,7 @@ if TORRENT_TIMEOUT is not None:
         a.write(f"bt-stop-timeout={TORRENT_TIMEOUT}\n")
 with open("a2c.conf", "a+") as a:
     a.write(f"bt-tracker=[{trackers}]")
+srun(["qbittorrent-nox", "--conf-path=/usr/src/app/a2c.conf"])
 sleep(0.5)
 
 Interval = []
