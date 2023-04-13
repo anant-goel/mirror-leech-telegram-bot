@@ -1,70 +1,98 @@
-from telegram.ext import CommandHandler
-from bot import download_dict, dispatcher, download_dict_lock, DOWNLOAD_DIR
-from bot.helper.ext_utils.fs_utils import clean_download
+#!/usr/bin/env python3
+from asyncio import sleep
+from pyrogram.handlers import MessageHandler, CallbackQueryHandler
+from pyrogram.filters import command, regex
+
+from bot import download_dict, bot, download_dict_lock, OWNER_ID, user_data
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper.filters import CustomFilters
-from bot.helper.telegram_helper.message_utils import sendMessage
+from bot.helper.telegram_helper.message_utils import sendMessage, auto_delete_message
+from bot.helper.ext_utils.bot_utils import getDownloadByGid, getAllDownload, MirrorStatus, new_task
+from bot.helper.telegram_helper import button_build
 
-from time import sleep
-from bot.helper.ext_utils.bot_utils import getDownloadByGid, MirrorStatus, getAllDownload
 
-
-def cancel_mirror(update, context):
-    args = update.message.text.split(" ", maxsplit=1)
-    mirror_message = None
-    if len(args) > 1:
-        gid = args[1]
-        dl = getDownloadByGid(gid)
-        if not dl:
-            sendMessage(f"GID: <code>{gid}</code> Not Found.", context.bot, update)
+async def cancel_mirror(client, message):
+    user_id = message.from_user.id
+    msg = message.text.split()
+    if len(msg) > 1:
+        gid = msg[1]
+        dl = await getDownloadByGid(gid)
+        if dl is None:
+            await sendMessage(message, f"GID: <code>{gid}</code> Not Found.")
             return
-        mirror_message = dl.message
-    elif update.message.reply_to_message:
-        mirror_message = update.message.reply_to_message
-        with download_dict_lock:
-            keys = list(download_dict.keys())
-            try:
-                dl = download_dict[mirror_message.message_id]
-            except:
-                pass
-    if len(args) == 1 and (
-        not mirror_message or mirror_message.message_id not in keys
-    ):
-        msg = f"Reply to active <code>/{BotCommands.MirrorCommand}</code> message which was used to start the download or send <code>/{BotCommands.CancelMirror} GID</code> to cancel it!"
-        sendMessage(msg, context.bot, update)
+    elif reply_to_id := message.reply_to_message_id:
+        async with download_dict_lock:
+            dl = download_dict.get(reply_to_id, None)
+        if dl is None:
+            await sendMessage(message, "This is not an active task!")
+            return
+    elif len(msg) == 1:
+        msg = "Reply to an active Command message which was used to start the download" \
+              f" or send <code>/{BotCommands.CancelMirror} GID</code> to cancel it!"
+        await sendMessage(message, msg)
         return
-    if dl.status() == MirrorStatus.STATUS_ARCHIVING:
-        sendMessage("Archival in Progress, You Can't Cancel It.", context.bot, update)
-    elif dl.status() == MirrorStatus.STATUS_EXTRACTING:
-        sendMessage("Extract in Progress, You Can't Cancel It.", context.bot, update)
-    elif dl.status() == MirrorStatus.STATUS_SPLITTING:
-        sendMessage("Split in Progress, You Can't Cancel It.", context.bot, update)
+    if OWNER_ID != user_id and dl.message.from_user.id != user_id and \
+       (user_id not in user_data or not user_data[user_id].get('is_sudo')):
+        await sendMessage(message, "This task is not for you!")
+        return
+    obj = dl.download()
+    await obj.cancel_download()
+
+
+@new_task
+async def cancel_all(status):
+    matches = await getAllDownload(status)
+    if not matches:
+        return False
+    for dl in matches:
+        obj = dl.download()
+        await obj.cancel_download()
+        await sleep(1)
+    return True
+
+
+@new_task
+async def cancell_all_buttons(client, message):
+    async with download_dict_lock:
+        count = len(download_dict)
+    if count == 0:
+        await sendMessage(message, "No active tasks!")
+        return
+    buttons = button_build.ButtonMaker()
+    buttons.ibutton("Downloading", f"canall {MirrorStatus.STATUS_DOWNLOADING}")
+    buttons.ibutton("Uploading", f"canall {MirrorStatus.STATUS_UPLOADING}")
+    buttons.ibutton("Seeding", f"canall {MirrorStatus.STATUS_SEEDING}")
+    buttons.ibutton("Cloning", f"canall {MirrorStatus.STATUS_CLONING}")
+    buttons.ibutton("Extracting", f"canall {MirrorStatus.STATUS_EXTRACTING}")
+    buttons.ibutton("Archiving", f"canall {MirrorStatus.STATUS_ARCHIVING}")
+    buttons.ibutton("QueuedDl", f"canall {MirrorStatus.STATUS_QUEUEDL}")
+    buttons.ibutton("QueuedUp", f"canall {MirrorStatus.STATUS_QUEUEUP}")
+    buttons.ibutton("Paused", f"canall {MirrorStatus.STATUS_PAUSED}")
+    buttons.ibutton("All", "canall all")
+    buttons.ibutton("Close", "canall close")
+    button = buttons.build_menu(2)
+    can_msg = await sendMessage(message, 'Choose tasks to cancel.', button)
+    await auto_delete_message(message, can_msg)
+
+
+@new_task
+async def cancel_all_update(client, query):
+    data = query.data.split()
+    message = query.message
+    reply_to = message.reply_to_message
+    await query.answer()
+    if data[1] == 'close':
+        await reply_to.delete()
+        await message.delete()
     else:
-        dl.download().cancel_download()
-        sleep(3)  # incase of any error with ondownloaderror listener
-        clean_download(f'{DOWNLOAD_DIR}{mirror_message.message_id}')
+        res = await cancel_all(data[1])
+        if not res:
+            await sendMessage(reply_to, f"No matching tasks for {data[1]}!")
 
 
-def cancel_all(update, context):
-    count = 0
-    gid = 0
-    while True:
-        dl = getAllDownload()
-        if dl:
-            if dl.gid() != gid:
-                gid = dl.gid()
-                dl.download().cancel_download()
-                count += 1
-                sleep(0.3)
-        else:
-            break
-    sendMessage(f'{count} Download(s) has been Cancelled!', context.bot, update)
-
-
-
-cancel_mirror_handler = CommandHandler(BotCommands.CancelMirror, cancel_mirror,
-                                       filters=(CustomFilters.authorized_chat | CustomFilters.authorized_user) & CustomFilters.mirror_owner_filter | CustomFilters.sudo_user, run_async=True)
-cancel_all_handler = CommandHandler(BotCommands.CancelAllCommand, cancel_all,
-                                    filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
-dispatcher.add_handler(cancel_all_handler)
-dispatcher.add_handler(cancel_mirror_handler)
+bot.add_handler(MessageHandler(cancel_mirror, filters=command(
+    BotCommands.CancelMirror) & CustomFilters.authorized))
+bot.add_handler(MessageHandler(cancell_all_buttons, filters=command(
+    BotCommands.CancelAllCommand) & CustomFilters.sudo))
+bot.add_handler(CallbackQueryHandler(cancel_all_update,
+                filters=regex("^canall") & CustomFilters.sudo))

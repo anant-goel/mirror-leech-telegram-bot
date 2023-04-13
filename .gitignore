@@ -1,5 +1,4 @@
 config.env
-*auth_token.txt
 *.pyc
 data*
 .vscode
@@ -8,9 +7,13 @@ data*
 *.pickle
 .netrc
 log.txt
-authorized_chats.txt
-sudo_users.txt
 accounts/*
 Thumbnails/*
-drive_folder
+rclone/*
+list_drives.txt
 cookies.txt
+downloads
+bot.session
+user.session
+terabox.txt
+rclone.conf

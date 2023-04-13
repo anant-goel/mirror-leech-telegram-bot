@@ -3,11 +3,11 @@ class DirectDownloadLinkException(Exception):
     pass
 
 
-class DirectTorrentMagnetException(Exception):
-    """Not method found for scrape torrent magnet from the torrent site link"""
+class NotSupportedExtractionArchive(Exception):
+    """The archive format use is trying to extract is not supported"""
     pass
 
 
-class NotSupportedExtractionArchive(Exception):
-    """The archive format use is trying to extract is not supported"""
+class RssShutdownException(Exception):
+    """This exception should be raised when shutdown is called to stop the montior"""
     pass
