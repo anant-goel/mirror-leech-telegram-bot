@@ -532,6 +532,10 @@ try:
 except KeyError:
     IMAGE_URL = 'https://telegra.ph/file/6f9947af1f40e4701aad4.jpg'        
 
-updater = tg.Updater(token=BOT_TOKEN, request_kwargs={'read_timeout': 30, 'connect_timeout': 15})
-bot = updater.bot
-dispatcher = updater.dispatcher
+log_info("Creating client from BOT_TOKEN")
+bot = tgClient('bot', TELEGRAM_API, TELEGRAM_HASH, bot_token=BOT_TOKEN,
+               parse_mode=enums.ParseMode.HTML, max_concurrent_transmissions=1000).start()
+bot_loop = bot.loop
+bot_name = bot.me.username
+scheduler = AsyncIOScheduler(timezone=str(
+    get_localzone()), event_loop=bot_loop)
