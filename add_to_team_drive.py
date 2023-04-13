@@ -1,16 +1,9 @@
 from __future__ import print_function
 from google.oauth2.service_account import Credentials
-import googleapiclient.discovery
-import json
-import progress.bar
-import glob
-import sys
-import argparse
-import time
+import googleapiclient.discovery, json, progress.bar, glob, sys, argparse, time
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-import os
-import pickle
+import os, pickle
 
 stt = time.time()
 
@@ -20,11 +13,9 @@ parse.add_argument('--path', '-p', default='accounts',
                    help='Specify an alternative path to the service accounts folder.')
 parse.add_argument('--credentials', '-c', default='./credentials.json',
                    help='Specify the relative path for the credentials file.')
-parse.add_argument('--yes', '-y', default=False,
-                   action='store_true', help='Skips the sanity prompt.')
+parse.add_argument('--yes', '-y', default=False, action='store_true', help='Skips the sanity prompt.')
 parsereq = parse.add_argument_group('required arguments')
-parsereq.add_argument('--drive-id', '-d',
-                      help='The ID of the Shared Drive.', required=True)
+parsereq.add_argument('--drive-id', '-d', help='The ID of the Shared Drive.', required=True)
 
 args = parse.parse_args()
 acc_dir = args.path
@@ -83,5 +74,4 @@ batch.execute()
 print('Complete.')
 hours, rem = divmod((time.time() - stt), 3600)
 minutes, sec = divmod(rem, 60)
-print("Elapsed Time:\n{:0>2}:{:0>2}:{:05.2f}".format(
-    int(hours), int(minutes), sec))
+print("Elapsed Time:\n{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), sec))
