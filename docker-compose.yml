@@ -1,5 +1,5 @@
 version: "3.3"
-
+   
 services:
   app:
     build: .
@@ -7,4 +7,3 @@ services:
     restart: on-failure
     ports:
       - "80:80"
-      - "8080:8080"

@@ -1,120 +1,92 @@
-#!/usr/bin/env python3
-from pyrogram.handlers import MessageHandler
-from pyrogram.filters import command
-from random import SystemRandom
-from string import ascii_letters, digits
-from asyncio import sleep
-
-from bot import LOGGER, download_dict, download_dict_lock, Interval, config_dict, status_reply_dict_lock, bot
-from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
-from bot.helper.telegram_helper.message_utils import sendMessage, deleteMessage, delete_all_messages, update_all_messages, sendStatusMessage
+import random
+import string
+from telegram.ext import CommandHandler
+from bot.helper.mirror_utils.upload_utils import gdriveTools
+from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup, deleteMessage, delete_all_messages, update_all_messages, sendStatusMessage
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.mirror_utils.status_utils.clone_status import CloneStatus
-from bot.helper.ext_utils.bot_utils import is_gdrive_link, new_task, sync_to_async, is_share_link, new_task
+from bot import dispatcher, LOGGER, CLONE_LIMIT, STOP_DUPLICATE, download_dict, download_dict_lock, Interval
+from bot.helper.ext_utils.bot_utils import get_readable_file_size, is_gdrive_link, is_gdtot_link
+from bot.helper.mirror_utils.download_utils.direct_link_generator import gdtot
 from bot.helper.ext_utils.exceptions import DirectDownloadLinkException
-from bot.helper.mirror_utils.download_utils.direct_link_generator import direct_link_generator
 
 
-@new_task
-async def cloneNode(client, message):
-    if not config_dict['GDRIVE_ID']:
-        await sendMessage(message, 'GDRIVE_ID not Provided!')
-        return
-    args = message.text.split()
-    link = ''
-    multi = 0
+def cloneNode(update, context):
+    args = update.message.text.split(" ", maxsplit=1)
+    reply_to = update.message.reply_to_message
     if len(args) > 1:
-        link = args[1].strip()
-        if link.strip().isdigit():
-            multi = int(link)
-            link = ''
-        elif username := message.from_user.username:
-            tag = f"@{username}"
-        else:
-            tag = message.from_user.mention
-    if reply_to := message.reply_to_message:
-        if len(link) == 0:
-            link = reply_to.text.split(maxsplit=1)[0].strip()
-        if not reply_to.from_user.is_bot:
-            if username := reply_to.from_user.username:
-                tag = f"@{username}"
-            else:
-                tag = reply_to.from_user.mention
-
-    @new_task
-    async def __run_multi():
-        if multi > 1:
-            await sleep(4)
-            nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=message.reply_to_message_id + 1)
-            args[1] = f"{multi - 1}"
-            nextmsg = await sendMessage(nextmsg, " ".join(args))
-            nextmsg = await client.get_messages(chat_id=message.chat.id, message_ids=nextmsg.id)
-            nextmsg.from_user = message.from_user
-            await sleep(4)
-            await cloneNode(client, nextmsg)
-
-    if is_share_link(link):
+        link = args[1]
+    elif reply_to is not None:
+        link = reply_to.text
+    else:
+        link = ''
+    gdtot_link = is_gdtot_link(link)
+    if gdtot_link:
         try:
-            link = await sync_to_async(direct_link_generator, link)
-            LOGGER.info(f"Generated link: {link}")
+            link = gdtot(link)
         except DirectDownloadLinkException as e:
-            LOGGER.error(str(e))
-            if str(e).startswith('ERROR:'):
-                await sendMessage(message, str(e))
-                __run_multi()
-                return
+            return sendMessage(str(e), context.bot, update)
     if is_gdrive_link(link):
-        gd = GoogleDriveHelper()
-        res, size, name, files = await sync_to_async(gd.helper, link)
+        gd = gdriveTools.GoogleDriveHelper()
+        res, size, name, files = gd.helper(link)
         if res != "":
-            await sendMessage(message, res)
-            __run_multi()
+            sendMessage(res, context.bot, update)
             return
-        if config_dict['STOP_DUPLICATE']:
+        if STOP_DUPLICATE:
             LOGGER.info('Checking File/Folder if already in Drive...')
-            smsg, button = await sync_to_async(gd.drive_list, name, True, True)
+            smsg, button = gd.drive_list(name, True, True)
             if smsg:
-                msg = "File/Folder is already available in Drive.\nHere are the search results:"
-                await sendMessage(message, msg, button)
-                __run_multi()
+                msg3 = "File/Folder is already available in Drive.\nHere are the search results:"
+                sendMarkup(msg3, context.bot, update, button)
+                if gdtot_link:
+                    gd.deletefile(link)
                 return
-        __run_multi()
-        if files <= 20:
-            msg = await sendMessage(message, f"Cloning: <code>{link}</code>")
-            result, button = await sync_to_async(gd.clone, link)
-            await deleteMessage(msg)
+        if CLONE_LIMIT is not None:
+            LOGGER.info('Checking File/Folder Size...')
+            if size > CLONE_LIMIT * 1024**3:
+                msg2 = f'Failed, Clone limit is {CLONE_LIMIT}GB.\nYour File/Folder size is {get_readable_file_size(size)}.'
+                sendMessage(msg2, context.bot, update)
+                return
+        if files <= 10:
+            msg = sendMessage(f"Cloning: <code>{link}</code>", context.bot, update)
+            result, button = gd.clone(link)
+            deleteMessage(context.bot, msg)
         else:
-            drive = GoogleDriveHelper(name)
-            gid = ''.join(SystemRandom().choices(ascii_letters + digits, k=12))
-            clone_status = CloneStatus(drive, size, message, gid)
-            async with download_dict_lock:
-                download_dict[message.id] = clone_status
-            await sendStatusMessage(message)
-            result, button = await sync_to_async(drive.clone, link)
-            async with download_dict_lock:
-                del download_dict[message.id]
+            drive = gdriveTools.GoogleDriveHelper(name)
+            gid = ''.join(random.SystemRandom().choices(string.ascii_letters + string.digits, k=12))
+            clone_status = CloneStatus(drive, size, update, gid)
+            with download_dict_lock:
+                download_dict[update.message.message_id] = clone_status
+            sendStatusMessage(update, context.bot)
+            result, button = drive.clone(link)
+            with download_dict_lock:
+                del download_dict[update.message.message_id]
                 count = len(download_dict)
             try:
                 if count == 0:
-                    async with status_reply_dict_lock:
-                        if Interval:
-                            Interval[0].cancel()
-                            del Interval[0]
-                    await delete_all_messages()
+                    Interval[0].cancel()
+                    del Interval[0]
+                    delete_all_messages()
                 else:
-                    await update_all_messages()
-            except:
+                    update_all_messages()
+            except IndexError:
                 pass
-        cc = f'\n\n<b>cc: </b>{tag}'
-        if button in ["cancelled", ""]:
-            await sendMessage(message, f"{tag} {result}")
+        if update.message.from_user.username:
+            uname = f'@{update.message.from_user.username}'
         else:
-            await sendMessage(message, result + cc, button)
-            LOGGER.info(f'Cloning Done: {name}')
+            uname = f'<a href="tg://user?id={update.message.from_user.id}">{update.message.from_user.first_name}</a>'
+        if uname is not None:
+            cc = f'\n\n<b>cc: </b>{uname}'
+            men = f'{uname} '
+        if button in ["cancelled", ""]:
+            sendMessage(men + result, context.bot, update)
+        else:
+            sendMarkup(result + cc, context.bot, update, button)
+        if gdtot_link:
+            gd.deletefile(link)
     else:
-        await sendMessage(message, "Send Gdrive link along with command or by replying to the link by command\n\n<b>Multi links only by replying to first link:</b>\n<code>/cmd</code> 10(number of links)")
+        sendMessage('Send Gdrive or gdtot link along with command or by replying to the link by command', context.bot, update)
 
-
-bot.add_handler(MessageHandler(cloneNode, filters=command(
-    BotCommands.CloneCommand) & CustomFilters.authorized))
+clone_handler = CommandHandler(BotCommands.CloneCommand, cloneNode, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+dispatcher.add_handler(clone_handler)
