@@ -322,6 +322,9 @@ RCLONE_SERVE_PASS = environ.get('RCLONE_SERVE_PASS', '')
 if len(RCLONE_SERVE_PASS) == 0:
     RCLONE_SERVE_PASS = ''
 
+QB_SEED = environ.get('QB_SEED', '')
+QB_SEED = QB_SEED.lower() == 'true'
+
 config_dict = {'AS_DOCUMENT': AS_DOCUMENT,
                'AUTHORIZED_CHATS': AUTHORIZED_CHATS,
                'AUTO_DELETE_MESSAGE_DURATION': AUTO_DELETE_MESSAGE_DURATION,
@@ -374,7 +377,8 @@ config_dict = {'AS_DOCUMENT': AS_DOCUMENT,
                'USE_SERVICE_ACCOUNTS': USE_SERVICE_ACCOUNTS,
                'VIEW_LINK': VIEW_LINK,
                'WEB_PINCODE': WEB_PINCODE,
-               'YT_DLP_QUALITY': YT_DLP_QUALITY}
+               'YT_DLP_QUALITY': YT_DLP_QUALITY,
+               'QB_SEED': QB_SEED}
 
 if GDRIVE_ID:
     DRIVES_NAMES.append("Main")
